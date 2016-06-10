@@ -2169,6 +2169,10 @@ class ModelDB : public DB {
   }
   void CompactRange(const Slice* start, const Slice* end) override {}
 
+  void SuspendCompaction() override {}
+
+  void ResumeCompaction() override {}
+
  private:
   class ModelIter : public Iterator {
    public:

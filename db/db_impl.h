@@ -48,6 +48,12 @@ class DBImpl : public DB {
   bool GetProperty(const Slice& property, std::string* value) override;
   void GetApproximateSizes(const Range* range, int n, uint64_t* sizes) override;
   void CompactRange(const Slice* begin, const Slice* end) override;
+  // Set the suspend flag, which tells the database not to schedule background
+  // work until resume
+  // Waits for any currently executing BG work to complete before returning
+  virtual void SuspendCompaction();
+  // Clears the suspend flag, so that the database can schedule background work
+  virtual void ResumeCompaction();
 
   // Extra methods (for testing) that are not in the public DB interface
 
@@ -194,6 +200,9 @@ class DBImpl : public DB {
 
   // Has a background compaction been scheduled or is running?
   bool background_compaction_scheduled_ GUARDED_BY(mutex_);
+
+  // Has anyone issued a request to suspend background work?
+  std::atomic<bool> suspending_compaction_;
 
   ManualCompaction* manual_compaction_ GUARDED_BY(mutex_);
 

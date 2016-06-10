@@ -147,11 +147,13 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       background_compaction_scheduled_(false),
       manual_compaction_(nullptr),
       versions_(new VersionSet(dbname_, &options_, table_cache_,
-                               &internal_comparator_)) {}
+                               &internal_comparator_)),
+      suspending_compaction_(false) {}
 
 DBImpl::~DBImpl() {
   // Wait for background work to finish.
   mutex_.Lock();
+  suspending_compaction_.store(false, std::memory_order_release); // make sure that the suspend flag is clear
   shutting_down_.store(true, std::memory_order_release);
   while (background_compaction_scheduled_) {
     background_work_finished_signal_.Wait();
@@ -670,6 +672,8 @@ void DBImpl::MaybeScheduleCompaction() {
     // Already scheduled
   } else if (shutting_down_.load(std::memory_order_acquire)) {
     // DB is being deleted; no more background compactions
+  } else if (suspending_compaction_.load(std::memory_order_acquire)) {
+	// DB is being suspended; no more background compactions
   } else if (!bg_error_.ok()) {
     // Already got an error; no more changes
   } else if (imm_ == nullptr && manual_compaction_ == nullptr &&
@@ -679,6 +683,24 @@ void DBImpl::MaybeScheduleCompaction() {
     background_compaction_scheduled_ = true;
     env_->Schedule(&DBImpl::BGWork, this);
   }
+}
+
+void DBImpl::SuspendCompaction() {
+	// set suspend flag and wait for any currently executing bg tasks to complete
+	mutex_.Lock();
+	suspending_compaction_.store(true, std::memory_order_release);
+	while (background_compaction_scheduled_) {
+		background_work_finished_signal_.Wait();
+	}
+	mutex_.Unlock();
+	Log(options_.info_log, "db BG suspended\n");
+}
+
+void DBImpl::ResumeCompaction() {
+	mutex_.Lock();
+	suspending_compaction_.store(false, std::memory_order_release);
+	mutex_.Unlock();
+	Log(options_.info_log, "db BG resumed\n");
 }
 
 void DBImpl::BGWork(void* db) {
@@ -766,6 +788,8 @@ void DBImpl::BackgroundCompaction() {
     // Done
   } else if (shutting_down_.load(std::memory_order_acquire)) {
     // Ignore compaction errors found during shutting down
+  } else if (suspending_compaction_.load(std::memory_order_acquire)) {
+    // Ignore compaction errors found during suspend
   } else {
     Log(options_.info_log, "Compaction error: %s", status.ToString().c_str());
   }

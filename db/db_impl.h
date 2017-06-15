@@ -202,7 +202,7 @@ class DBImpl : public DB {
   bool background_compaction_scheduled_ GUARDED_BY(mutex_);
 
   // Has anyone issued a request to suspend background work?
-  std::atomic<bool> suspending_compaction_;
+  std::atomic<bool> suspending_compaction_ GUARDED_BY(mutex_);
 
   ManualCompaction* manual_compaction_ GUARDED_BY(mutex_);
 

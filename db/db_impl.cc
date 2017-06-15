@@ -672,7 +672,7 @@ void DBImpl::MaybeScheduleCompaction() {
     // Already scheduled
   } else if (shutting_down_.load(std::memory_order_acquire)) {
     // DB is being deleted; no more background compactions
-  } else if (suspending_compaction_.load(std::memory_order_acquire)) {
+  } else if (imm_ == nullptr && suspending_compaction_.load(std::memory_order_acquire)) {
 	// DB is being suspended; no more background compactions
   } else if (!bg_error_.ok()) {
     // Already got an error; no more changes
@@ -687,16 +687,15 @@ void DBImpl::MaybeScheduleCompaction() {
 
 void DBImpl::SuspendCompaction() {
 	// set suspend flag and wait for any currently executing bg tasks to complete
+	Log(options_.info_log, "BG suspend compaction\n");
 	mutex_.Lock();
 	suspending_compaction_.store(true, std::memory_order_release);
-	while (background_compaction_scheduled_) {
-		background_work_finished_signal_.Wait();
-	}
 	mutex_.Unlock();
-	Log(options_.info_log, "db BG suspended\n");
+	Log(options_.info_log, "BG suspended\n");
 }
 
 void DBImpl::ResumeCompaction() {
+	Log(options_.info_log, "BG resume compaction\n");
 	mutex_.Lock();
 	suspending_compaction_.store(false, std::memory_order_release);
 	mutex_.Unlock();
@@ -722,7 +721,9 @@ void DBImpl::BackgroundCall() {
 
   // Previous compaction may have produced too many files in a level,
   // so reschedule another compaction if needed.
-  MaybeScheduleCompaction();
+  if (!suspending_compaction_.load(std::memory_order_acquire)) {
+    MaybeScheduleCompaction();
+  }
   background_work_finished_signal_.SignalAll();
 }
 
@@ -1377,6 +1378,9 @@ Status DBImpl::MakeRoomForWrite(bool force) {
                (mem_->ApproximateMemoryUsage() <= options_.write_buffer_size)) {
       // There is room in current memtable
       break;
+    } else if (suspending_compaction_.load(std::memory_order_acquire)) {
+      // suspending, don't do this now
+      break;
     } else if (imm_ != nullptr) {
       // We have filled up the current memtable, but the previous
       // one is still being compacted, so we wait.
@@ -1421,7 +1425,9 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       mem_ = new MemTable(internal_comparator_);
       mem_->Ref();
       force = false;  // Do not force another compaction if have room
-      MaybeScheduleCompaction();
+      if (!suspending_compaction_.load(std::memory_order_acquire)) {
+        MaybeScheduleCompaction();
+      }
     }
   }
   return s;

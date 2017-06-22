@@ -1435,7 +1435,7 @@ bool DBImpl::GetProperty(const Slice& property, std::string* value) {
     for (int level = 0; level < config::kNumLevels; level++) {
       int files = versions_->NumLevelFiles(level);
       if (stats_[level].micros > 0 || files > 0) {
-        std::snprintf(buf, sizeof(buf), "%3d %8d %8.0f %9.0f %8.0f %9.0f\n",
+        std::snprintf(buf, sizeof(buf), "%3d %8d %8.0f %9.2f %8.2f %9.2f\n",
                       level, files, versions_->NumLevelBytes(level) / 1048576.0,
                       stats_[level].micros / 1e6,
                       stats_[level].bytes_read / 1048576.0,
@@ -1444,6 +1444,52 @@ bool DBImpl::GetProperty(const Slice& property, std::string* value) {
       }
     }
     return true;
+	// BLOCK ADDED FOR MINECRAFT
+  } else if (in == "jsonstats") {
+	  char buf[200];
+	  value->append("{\n");
+	  value->append("\"levels\"");
+	  value->append(": [\n");
+	  bool first = true;
+	  for (int level = 0; level < config::kNumLevels; level++) {
+		  int files = versions_->NumLevelFiles(level);
+		  if (stats_[level].micros > 0 || files > 0) {
+
+			  // Nth items in array append ,\n to previous entry
+			  if (!first) {
+				  value->append(",\n");
+			  }
+			  value->append("{\n");
+
+			  value->append("\"level\"");
+			  snprintf(buf, sizeof(buf), ": %3d,\n", level);
+			  value->append(buf);
+
+			  value->append("\"files\"");
+			  snprintf(buf, sizeof(buf), ": %3d,\n", files);
+			  value->append(buf);
+
+			  snprintf(buf, sizeof(buf), "\"sizeMB\": %0.3f,\n", versions_->NumLevelBytes(level) / 1048576.0);
+			  value->append(buf);
+
+			  snprintf(buf, sizeof(buf), "\"tsec\": %0.3f,\n", stats_[level].micros / 1e6);
+			  value->append(buf);
+
+			  snprintf(buf, sizeof(buf), "\"readMB\": %0.3f,\n", stats_[level].bytes_read / 1048576.0);
+			  value->append(buf);
+
+			  snprintf(buf, sizeof(buf), "\"writeMB\": %0.3f\n", stats_[level].bytes_written / 1048576.0);
+			  value->append(buf);
+
+			  // append end }
+			  value->append("}");
+
+			  first = false;
+		  }
+	  }
+	  value->append("]\n");
+	  value->append("}");
+
   } else if (in == "sstables") {
     *value = versions_->current()->DebugString();
     return true;

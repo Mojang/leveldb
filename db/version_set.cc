@@ -267,7 +267,7 @@ static void SaveValue(void* arg, const Slice& ikey, const Slice& v) {
   } else {
     if (s->ucmp->Compare(parsed_key.user_key, s->user_key) == 0) {
       s->state = (parsed_key.type == kTypeValue) ? kFound : kDeleted;
-      if (s->state == kFound) {
+      if (s->state == kFound && s->value) {
         s->value->assign(v.data(), v.size());
       }
     }

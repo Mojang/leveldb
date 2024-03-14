@@ -25,7 +25,7 @@ Writer::Writer(WritableFile* dest) : dest_(dest), block_offset_(0) {
 }
 
 Writer::Writer(WritableFile* dest, uint64_t dest_length)
-    : dest_(dest), block_offset_(dest_length % kBlockSize) {
+    : dest_(dest), block_offset_(dest_length % port::kLogBlockSize) {
   InitTypeCrc(type_crc_);
 }
 
@@ -41,7 +41,7 @@ Status Writer::AddRecord(const Slice& slice) {
   Status s;
   bool begin = true;
   do {
-    const int leftover = kBlockSize - block_offset_;
+    const int leftover = port::kLogBlockSize - block_offset_;
     assert(leftover >= 0);
     if (leftover < kHeaderSize) {
       // Switch to a new block
@@ -54,9 +54,9 @@ Status Writer::AddRecord(const Slice& slice) {
     }
 
     // Invariant: we never leave < kHeaderSize bytes in a block.
-    assert(kBlockSize - block_offset_ - kHeaderSize >= 0);
+    assert(port::kLogBlockSize - block_offset_ - kHeaderSize >= 0);
 
-    const size_t avail = kBlockSize - block_offset_ - kHeaderSize;
+    const size_t avail = port::kLogBlockSize - block_offset_ - kHeaderSize;
     const size_t fragment_length = (left < avail) ? left : avail;
 
     RecordType type;
@@ -82,7 +82,7 @@ Status Writer::AddRecord(const Slice& slice) {
 Status Writer::EmitPhysicalRecord(RecordType t, const char* ptr,
                                   size_t length) {
   assert(length <= 0xffff);  // Must fit in two bytes
-  assert(block_offset_ + kHeaderSize + length <= kBlockSize);
+  assert(block_offset_ + kHeaderSize + length <= port::kLogBlockSize);
 
   // Format the header
   char buf[kHeaderSize];

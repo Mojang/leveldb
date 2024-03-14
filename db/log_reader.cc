@@ -20,7 +20,7 @@ Reader::Reader(SequentialFile* file, Reporter* reporter, bool checksum,
     : file_(file),
       reporter_(reporter),
       checksum_(checksum),
-      backing_store_(new char[kBlockSize]),
+      backing_store_(new char[port::kLogBlockSize]),
       buffer_(),
       eof_(false),
       last_record_offset_(0),
@@ -31,12 +31,12 @@ Reader::Reader(SequentialFile* file, Reporter* reporter, bool checksum,
 Reader::~Reader() { delete[] backing_store_; }
 
 bool Reader::SkipToInitialBlock() {
-  const size_t offset_in_block = initial_offset_ % kBlockSize;
+  const size_t offset_in_block = initial_offset_ % port::kLogBlockSize;
   uint64_t block_start_location = initial_offset_ - offset_in_block;
 
   // Don't search a block if we'd be in the trailer
-  if (offset_in_block > kBlockSize - 6) {
-    block_start_location += kBlockSize;
+  if (offset_in_block > port::kLogBlockSize - 6) {
+    block_start_location += port::kLogBlockSize;
   }
 
   end_of_buffer_offset_ = block_start_location;
@@ -192,14 +192,14 @@ unsigned int Reader::ReadPhysicalRecord(Slice* result) {
       if (!eof_) {
         // Last read was a full read, so this is a trailer to skip
         buffer_.clear();
-        Status status = file_->Read(kBlockSize, &buffer_, backing_store_);
+        Status status = file_->Read(port::kLogBlockSize, &buffer_, backing_store_);
         end_of_buffer_offset_ += buffer_.size();
         if (!status.ok()) {
           buffer_.clear();
-          ReportDrop(kBlockSize, status);
+          ReportDrop(port::kLogBlockSize, status);
           eof_ = true;
           return kEof;
-        } else if (buffer_.size() < kBlockSize) {
+        } else if (buffer_.size() < port::kLogBlockSize) {
           eof_ = true;
         }
         continue;

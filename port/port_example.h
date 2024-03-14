@@ -18,6 +18,9 @@ namespace port {
 // TODO(jorlow): Many of these belong more in the environment class rather than
 //               here. We should try moving them and see if it affects perf.
 
+// Buffer size for log
+static const int kLogBlockSize = 32768;
+
 // ------------------ Threading -------------------
 
 // A Mutex represents an exclusive lock.

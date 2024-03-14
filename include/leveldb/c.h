@@ -190,7 +190,13 @@ LEVELDB_EXPORT void leveldb_options_set_block_restart_interval(
 LEVELDB_EXPORT void leveldb_options_set_max_file_size(leveldb_options_t*,
                                                       size_t);
 
-enum { leveldb_no_compression = 0, leveldb_snappy_compression = 1 };
+enum {
+	leveldb_no_compression = 0,
+	leveldb_snappy_compression = 1,
+	leveldb_zstd_compression = 2,
+	leveldb_zlib_raw_compression = 4
+};
+
 LEVELDB_EXPORT void leveldb_options_set_compression(leveldb_options_t*, int);
 
 /* Comparator */

@@ -41,7 +41,7 @@ include(CheckLibraryExists)
 check_library_exists(crc32c crc32c_value "" HAVE_CRC32C)
 check_library_exists(snappy snappy_compress "" HAVE_SNAPPY)
 check_library_exists(zstd zstd_compress "" HAVE_ZSTD)
-check_library_exists(zlibstatic deflate "" HAVE_ZSTD)
+check_library_exists(zlibstatic deflate "" HAVE_ZLIB)
 check_library_exists(tcmalloc malloc "" HAVE_TCMALLOC)
 
 #remove when check_library_exits starts working

@@ -51,9 +51,9 @@ class DBImpl : public DB {
   // Set the suspend flag, which tells the database not to schedule background
   // work until resume
   // Waits for any currently executing BG work to complete before returning
-  virtual void SuspendCompaction();
+  void SuspendCompaction() override;
   // Clears the suspend flag, so that the database can schedule background work
-  virtual void ResumeCompaction();
+  void ResumeCompaction() override;
 
   // Extra methods (for testing) that are not in the public DB interface
 

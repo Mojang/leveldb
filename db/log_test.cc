@@ -238,20 +238,20 @@ class LogTest : public testing::Test {
 size_t LogTest::initial_offset_record_sizes_[] = {
     10000,  // Two sizable records in first block
     10000,
-    2 * log::kBlockSize - 1000,  // Span three blocks
+    2 * port::kLogBlockSize - 1000,  // Span three blocks
     1,
     13716,                          // Consume all but two bytes of block 3.
-    log::kBlockSize - kHeaderSize,  // Consume the entirety of block 4.
+    port::kLogBlockSize - kHeaderSize,  // Consume the entirety of block 4.
 };
 
 uint64_t LogTest::initial_offset_last_record_offsets_[] = {
     0,
     kHeaderSize + 10000,
     2 * (kHeaderSize + 10000),
-    2 * (kHeaderSize + 10000) + (2 * log::kBlockSize - 1000) + 3 * kHeaderSize,
-    2 * (kHeaderSize + 10000) + (2 * log::kBlockSize - 1000) + 3 * kHeaderSize +
+    2 * (kHeaderSize + 10000) + (2 * port::kLogBlockSize - 1000) + 3 * kHeaderSize,
+    2 * (kHeaderSize + 10000) + (2 * port::kLogBlockSize - 1000) + 3 * kHeaderSize +
         kHeaderSize + 1,
-    3 * log::kBlockSize,
+    3 * port::kLogBlockSize,
 };
 
 // LogTest::initial_offset_last_record_offsets_ must be defined before this.
@@ -295,9 +295,9 @@ TEST_F(LogTest, Fragmentation) {
 
 TEST_F(LogTest, MarginalTrailer) {
   // Make a trailer that is exactly the same length as an empty record.
-  const int n = kBlockSize - 2 * kHeaderSize;
+  const int n = port::kLogBlockSize - 2 * kHeaderSize;
   Write(BigString("foo", n));
-  ASSERT_EQ(kBlockSize - kHeaderSize, WrittenBytes());
+  ASSERT_EQ(port::kLogBlockSize - kHeaderSize, WrittenBytes());
   Write("");
   Write("bar");
   ASSERT_EQ(BigString("foo", n), Read());
@@ -308,9 +308,9 @@ TEST_F(LogTest, MarginalTrailer) {
 
 TEST_F(LogTest, MarginalTrailer2) {
   // Make a trailer that is exactly the same length as an empty record.
-  const int n = kBlockSize - 2 * kHeaderSize;
+  const int n = port::kLogBlockSize - 2 * kHeaderSize;
   Write(BigString("foo", n));
-  ASSERT_EQ(kBlockSize - kHeaderSize, WrittenBytes());
+  ASSERT_EQ(port::kLogBlockSize - kHeaderSize, WrittenBytes());
   Write("bar");
   ASSERT_EQ(BigString("foo", n), Read());
   ASSERT_EQ("bar", Read());
@@ -320,9 +320,9 @@ TEST_F(LogTest, MarginalTrailer2) {
 }
 
 TEST_F(LogTest, ShortTrailer) {
-  const int n = kBlockSize - 2 * kHeaderSize + 4;
+  const int n = port::kLogBlockSize - 2 * kHeaderSize + 4;
   Write(BigString("foo", n));
-  ASSERT_EQ(kBlockSize - kHeaderSize + 4, WrittenBytes());
+  ASSERT_EQ(port::kLogBlockSize - kHeaderSize + 4, WrittenBytes());
   Write("");
   Write("bar");
   ASSERT_EQ(BigString("foo", n), Read());
@@ -332,9 +332,9 @@ TEST_F(LogTest, ShortTrailer) {
 }
 
 TEST_F(LogTest, AlignedEof) {
-  const int n = kBlockSize - 2 * kHeaderSize + 4;
+  const int n = port::kLogBlockSize - 2 * kHeaderSize + 4;
   Write(BigString("foo", n));
-  ASSERT_EQ(kBlockSize - kHeaderSize + 4, WrittenBytes());
+  ASSERT_EQ(port::kLogBlockSize - kHeaderSize + 4, WrittenBytes());
   ASSERT_EQ(BigString("foo", n), Read());
   ASSERT_EQ("EOF", Read());
 }
@@ -367,7 +367,7 @@ TEST_F(LogTest, ReadError) {
   Write("foo");
   ForceError();
   ASSERT_EQ("EOF", Read());
-  ASSERT_EQ(kBlockSize, DroppedBytes());
+  ASSERT_EQ(port::kLogBlockSize, DroppedBytes());
   ASSERT_EQ("OK", MatchError("read error"));
 }
 
@@ -391,13 +391,13 @@ TEST_F(LogTest, TruncatedTrailingRecordIsIgnored) {
 }
 
 TEST_F(LogTest, BadLength) {
-  const int kPayloadSize = kBlockSize - kHeaderSize;
+  const int kPayloadSize = port::kLogBlockSize - kHeaderSize;
   Write(BigString("bar", kPayloadSize));
   Write("foo");
   // Least significant size byte is stored in header[4].
   IncrementByte(4, 1);
   ASSERT_EQ("foo", Read());
-  ASSERT_EQ(kBlockSize, DroppedBytes());
+  ASSERT_EQ(port::kLogBlockSize, DroppedBytes());
   ASSERT_EQ("OK", MatchError("bad record length"));
 }
 
@@ -458,7 +458,7 @@ TEST_F(LogTest, UnexpectedFirstType) {
 }
 
 TEST_F(LogTest, MissingLastIsIgnored) {
-  Write(BigString("bar", kBlockSize));
+  Write(BigString("bar", port::kLogBlockSize));
   // Remove the LAST block, including header.
   ShrinkSize(14);
   ASSERT_EQ("EOF", Read());
@@ -467,7 +467,7 @@ TEST_F(LogTest, MissingLastIsIgnored) {
 }
 
 TEST_F(LogTest, PartialLastIsIgnored) {
-  Write(BigString("bar", kBlockSize));
+  Write(BigString("bar", port::kLogBlockSize));
   // Cause a bad record length in the LAST block.
   ShrinkSize(1);
   ASSERT_EQ("EOF", Read());
@@ -481,9 +481,9 @@ TEST_F(LogTest, SkipIntoMultiRecord) {
   // If initial_offset points to a record after first(R1) but before first(R2)
   // incomplete fragment errors are not actual errors, and must be suppressed
   // until a new first or full record is encountered.
-  Write(BigString("foo", 3 * kBlockSize));
+  Write(BigString("foo", 3 * port::kLogBlockSize));
   Write("correct");
-  StartReadingAt(kBlockSize);
+  StartReadingAt(port::kLogBlockSize);
 
   ASSERT_EQ("correct", Read());
   ASSERT_EQ("", ReportMessage());
@@ -498,20 +498,20 @@ TEST_F(LogTest, ErrorJoinsRecords) {
   // first(R1),last(R2) to get joined and returned as a valid record.
 
   // Write records that span two blocks
-  Write(BigString("foo", kBlockSize));
-  Write(BigString("bar", kBlockSize));
+  Write(BigString("foo", port::kLogBlockSize));
+  Write(BigString("bar", port::kLogBlockSize));
   Write("correct");
 
   // Wipe the middle block
-  for (int offset = kBlockSize; offset < 2 * kBlockSize; offset++) {
+  for (int offset = port::kLogBlockSize; offset < 2 * port::kLogBlockSize; offset++) {
     SetByte(offset, 'x');
   }
 
   ASSERT_EQ("correct", Read());
   ASSERT_EQ("EOF", Read());
   const size_t dropped = DroppedBytes();
-  ASSERT_LE(dropped, 2 * kBlockSize + 100);
-  ASSERT_GE(dropped, 2 * kBlockSize);
+  ASSERT_LE(dropped, 2 * port::kLogBlockSize + 100);
+  ASSERT_GE(dropped, 2 * port::kLogBlockSize);
 }
 
 TEST_F(LogTest, ReadStart) { CheckInitialOffsetRecord(0, 0); }
@@ -529,25 +529,25 @@ TEST_F(LogTest, ReadThirdStart) { CheckInitialOffsetRecord(20014, 2); }
 TEST_F(LogTest, ReadFourthOneOff) { CheckInitialOffsetRecord(20015, 3); }
 
 TEST_F(LogTest, ReadFourthFirstBlockTrailer) {
-  CheckInitialOffsetRecord(log::kBlockSize - 4, 3);
+  CheckInitialOffsetRecord(port::kLogBlockSize - 4, 3);
 }
 
 TEST_F(LogTest, ReadFourthMiddleBlock) {
-  CheckInitialOffsetRecord(log::kBlockSize + 1, 3);
+  CheckInitialOffsetRecord(port::kLogBlockSize + 1, 3);
 }
 
 TEST_F(LogTest, ReadFourthLastBlock) {
-  CheckInitialOffsetRecord(2 * log::kBlockSize + 1, 3);
+  CheckInitialOffsetRecord(2 * port::kLogBlockSize + 1, 3);
 }
 
 TEST_F(LogTest, ReadFourthStart) {
   CheckInitialOffsetRecord(
-      2 * (kHeaderSize + 1000) + (2 * log::kBlockSize - 1000) + 3 * kHeaderSize,
+      2 * (kHeaderSize + 1000) + (2 * port::kLogBlockSize - 1000) + 3 * kHeaderSize,
       3);
 }
 
 TEST_F(LogTest, ReadInitialOffsetIntoBlockPadding) {
-  CheckInitialOffsetRecord(3 * log::kBlockSize - 3, 5);
+  CheckInitialOffsetRecord(3 * port::kLogBlockSize - 3, 5);
 }
 
 TEST_F(LogTest, ReadEnd) { CheckOffsetPastEndReturnsNoRecords(0); }

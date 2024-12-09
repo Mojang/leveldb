@@ -194,7 +194,7 @@ TEST_F(CorruptionTest, Recovery) {
   Build(100);
   Check(100, 100);
   Corrupt(kLogFile, 19, 1);  // WriteBatch tag for first record
-  Corrupt(kLogFile, log::kBlockSize + 1000, 1);  // Somewhere in second block
+  Corrupt(kLogFile, port::kLogBlockSize + 1000, 1);  // Somewhere in second block
   Reopen();
 
   // The 64 records in the first two log blocks are completely lost.

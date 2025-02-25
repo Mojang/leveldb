@@ -59,8 +59,10 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   add_compile_options(/EHs-c-)
   add_definitions(-D_HAS_EXCEPTIONS=0)
 
-  # Disable RTTI.
-  add_compile_options(/GR-)
+  if(LEVELDB_DISABLE_RTTI)
+    # Disable RTTI.
+    add_compile_options(/GR-)
+  endif(LEVELDB_DISABLE_RTTI)
 else(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   # Enable strict prototype warnings for C code in clang and gcc.
   if(NOT CMAKE_C_FLAGS MATCHES "-Wstrict-prototypes")
@@ -70,8 +72,10 @@ else(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   # Disable C++ exceptions.
   add_compile_options(-fno-exceptions)
 
-  # Disable RTTI.
-  add_compile_options(-fno-rtti)
+  if(LEVELDB_DISABLE_RTTI)
+    # Disable RTTI.
+    add_compile_options(-fno-rtti)
+  endif(LEVELDB_DISABLE_RTTI)
 endif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 
 # Test whether -Wthread-safety is available. See

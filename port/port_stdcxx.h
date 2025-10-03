@@ -50,7 +50,7 @@ namespace port {
 
 class CondVar;
 
-static const int kLogBlockSize = 32768;
+static const int kLogBlockSize = 65536;
 
 // Thinly wraps std::mutex.
 class LOCKABLE Mutex {

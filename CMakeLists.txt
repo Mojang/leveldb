@@ -45,7 +45,7 @@ check_library_exists(zlibstatic deflate "" HAVE_ZSTD)
 check_library_exists(tcmalloc malloc "" HAVE_TCMALLOC)
 
 #remove when check_library_exits starts working
-set(HAVE_SNAPPY ON)
+set(HAVE_SNAPPY OFF)
 set(HAVE_ZSTD ON)
 set(HAVE_ZLIB ON)
 

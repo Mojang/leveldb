@@ -177,7 +177,11 @@ struct LEVELDB_EXPORT ReadOptions {
   
   // Allocator to grab the (possibly tens of mb big) blocks of memory 
   // where to decompress
-  DecompressAllocator* decompress_allocator = nullptr;
+  void* (*decompress_allocator)(void*, size_t) = nullptr;
+
+  // Blocks above this size will not be cached, regardless of the
+  // value of fill_cache above
+  size_t cache_limit = 0xffffffff;
 };
 
 // Options that control write operations

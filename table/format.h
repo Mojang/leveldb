@@ -80,6 +80,7 @@ static const size_t kBlockTrailerSize = 5;
 
 struct BlockContents {
   Slice data;           // Actual contents of data
+  void* (*deleter)(void*, size_t) = nullptr;  // If data.data() needs to be deleted, deleter
   bool cachable;        // True iff data can be cached
   bool heap_allocated;  // True iff caller should delete[] data.data()
 };

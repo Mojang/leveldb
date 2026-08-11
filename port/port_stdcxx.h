@@ -259,42 +259,65 @@ inline bool Zlib_Compress(int level, const char* input, size_t length,
 }
 
 inline bool Zlib_Uncompress(const char* input, size_t length,
-                            std::string* output, uint8_t raw = 0)
+                            char** output, size_t* outLength, void* (*customAlloc)(void*, size_t), uint8_t raw = 0)
 {
 #if HAVE_ZLIB
-  const int CHUNK = 64 * 1024;
-  int ret;
-  size_t have;
+  if (!output || !outLength || !customAlloc) {
+    return false;
+  }
+
+  if (length == 0) {
+    return false;
+  }
+
   z_stream strm;
-  unsigned char out[CHUNK];
   /* allocate inflate state */
   strm.zalloc = Z_NULL;
   strm.zfree = Z_NULL;
   strm.opaque = Z_NULL;
   strm.avail_in = (uint32_t)length;
   strm.next_in = (Bytef*)input;
-  ret = inflateInit2(&strm, (raw ? -15 : 15));
+  strm.total_out = 0;
+  int ret = inflateInit2(&strm, (raw ? -15 : 15));
   if (ret != Z_OK) {
     return false;
   }
+
+  size_t outCapacity = 0;
+  size_t produced = 0;
+  *output = nullptr;
+
   /* run inflate() on input until output buffer not full */
   do {
-    strm.avail_out = CHUNK;
-    strm.next_out = out;
-    ret = ::inflate(&strm, Z_NO_FLUSH);
-    if (ret == Z_NEED_DICT) {
-      ret = Z_DATA_ERROR;
+    if (outCapacity == 0) {
+      constexpr size_t minOutCapacity = 4 * 1024;
+      outCapacity = std::max(length * 20, minOutCapacity);
+    } else {
+      outCapacity = outCapacity + outCapacity / 2;
     }
-    if (ret < 0) {
-      (void)inflateEnd(&strm);
-      return false;
-    }
-    have = CHUNK - strm.avail_out;
-    output->append((char*)out, have);
-  } while (strm.avail_out == 0);
+    *output = static_cast<char*>(customAlloc(*output, outCapacity));
+    strm.next_out = reinterpret_cast<Bytef*>(*output) + produced;
+    strm.avail_out = outCapacity - produced;
+    size_t requested = strm.avail_out;
+    do {
+      ret = ::inflate(&strm, Z_NO_FLUSH);
+    } while (ret == Z_OK);
+	produced += requested - strm.avail_out;
+  } while (ret == Z_BUF_ERROR && strm.avail_in > 0);
   /* clean up and return */
   (void)inflateEnd(&strm);
-  return ret == Z_STREAM_END;
+
+  if (ret == Z_STREAM_END) {
+    *output = static_cast<char*>(customAlloc(*output, produced));
+	*outLength = produced;
+    return true;
+  }
+  else {
+	customAlloc(*output, 0);
+	*output = nullptr;
+	*outLength = 0;
+    return false;
+  }
 #else
   // Silence compiler warnings about unused arguments.
   (void)input;
